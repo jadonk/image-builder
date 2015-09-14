@@ -3,13 +3,13 @@
 time=$(date +%Y-%m-%d)
 DIR="$PWD"
 
-./RootStock-NG.sh -c bb.org-debian-stable
-./RootStock-NG.sh -c bb.org-debian-stable-4gb
-./RootStock-NG.sh -c bb.org-console-debian-stable
+./RootStock-NG.sh -c bb.org-debian-wheezy-lxde-2gb
+./RootStock-NG.sh -c bb.org-debian-wheezy-lxde-4gb
+./RootStock-NG.sh -c bb.org-debian-wheezy-console
 
-debian_lxde_stable="debian-7.8-lxde-armhf-${time}"
-debian_lxde_4gb_stable="debian-7.8-lxde-4gb-armhf-${time}"
-debian_console_stable="debian-7.8-console-armhf-${time}"
+debian_lxde_stable="debian-7.9-lxde-armhf-${time}"
+debian_lxde_4gb_stable="debian-7.9-lxde-4gb-armhf-${time}"
+debian_console_stable="debian-7.9-console-armhf-${time}"
 archive="xz -z -8 -v"
 
 cat > ${DIR}/deploy/gift_wrap_final_images.sh <<-__EOF__
@@ -67,16 +67,16 @@ generic_img
 base_rootfs="${debian_lxde_stable}"
 pre_generic_img
 
-options="--img-2gb BBB-eMMC-flasher-\${base_rootfs}       --dtb beaglebone       --beagleboard.org-production --boot_label BEAGLEBONE --enable-systemd --rootfs_label rootfs --bbb-flasher  --bbb-old-bootloader-in-emmc --hostname beaglebone"
+options="--img-2gb BBB-eMMC-flasher-\${base_rootfs} --dtb beaglebone --beagleboard.org-production --boot_label BEAGLEBONE --enable-systemd --rootfs_label rootfs --bbb-flasher  --bbb-old-bootloader-in-emmc --hostname beaglebone"
 generic_img
 
 ###console images: (also single partition)
 base_rootfs="${debian_console_stable}"
 pre_generic_img
 
-options="--img-2gb BBB-eMMC-flasher-\${base_rootfs}       --dtb beaglebone       --boot_label BEAGLEBONE --enable-systemd --bbb-flasher --bbb-old-bootloader-in-emmc --hostname beaglebone"
+options="--img-2gb BBB-eMMC-flasher-\${base_rootfs} --dtb beaglebone --boot_label BEAGLEBONE --enable-systemd --bbb-flasher --bbb-old-bootloader-in-emmc --hostname beaglebone"
 generic_img
-options="--img-2gb bone-\${base_rootfs}                   --dtb beaglebone       --boot_label BEAGLEBONE --enable-systemd --bbb-old-bootloader-in-emmc --hostname beaglebone"
+options="--img-2gb bone-\${base_rootfs}             --dtb beaglebone --boot_label BEAGLEBONE --enable-systemd --bbb-old-bootloader-in-emmc --hostname beaglebone"
 generic_img
 
 ###archive *.tar

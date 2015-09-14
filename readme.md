@@ -1,3 +1,18 @@
+eeprom database
+------------
+
+BeagleBoard.org or Element14 BeagleBone Black:
+
+    A5A: [aa 55 33 ee 41 33 33 35  42 4e 4c 54 30 41 35 41 |.U3.A335BNLT0A5A|]
+    A5B: [aa 55 33 ee 41 33 33 35  42 4e 4c 54 30 41 35 42 |.U3.A335BNLT0A5B|]
+    A5C: [aa 55 33 ee 41 33 33 35  42 4e 4c 54 30 41 35 43 |.U3.A335BNLT0A5C|]
+     A6: [aa 55 33 ee 41 33 33 35  42 4e 4c 54 30 30 41 36 |.U3.A335BNLT00A6|]
+      C: [aa 55 33 ee 41 33 33 35  42 4e 4c 54 30 30 30 43 |.U3.A335BNLT000C|]
+
+SeeedStudio BeagleBone Green:
+
+     1A: [aa 55 33 ee 41 33 33 35  42 4e 4c 54 1a 00 00 00 |.U3.A335BNLT....|]
+
 Scripts to support customized image generation for many arm systems
 
 BeagleBoard branch:
@@ -44,33 +59,33 @@ Master branch:
 
 eewiki.net: Debian Stable (armel) minfs:
 
-    ./RootStock-NG.sh -c eewiki_minfs_debian_stable_armel
+    ./RootStock-NG.sh -c eewiki_minfs_debian_jessie_armel
 
 eewiki.net: Debian Stable (armhf) minfs:
 
-    ./RootStock-NG.sh -c eewiki_minfs_debian_stable_armhf
+    ./RootStock-NG.sh -c eewiki_minfs_debian_jessie_armhf
 
 eewiki.net: Ubuntu Stable (armhf) minfs:
 
-    ./RootStock-NG.sh -c eewiki_minfs_ubuntu_stable_armhf
+    ./RootStock-NG.sh -c eewiki_minfs_ubuntu_trusty_armhf
 
 eewiki.net: Debian Stable (armel) barefs:
 
-    ./RootStock-NG.sh -c eewiki_bare_debian_stable_armel
+    ./RootStock-NG.sh -c eewiki_bare_debian_jessie_armel
 
 eewiki.net: Debian Stable (armhf) barefs:
 
-    ./RootStock-NG.sh -c eewiki_bare_debian_stable_armhf
+    ./RootStock-NG.sh -c eewiki_bare_debian_jessie_armhf
 
 elinux.org: Debian Images:
 
-    ./RootStock-NG.sh -c rcn-ee_console_debian_stable_armhf
-    ./RootStock-NG.sh -c rcn-ee_console_debian_testing_armhf
+    ./RootStock-NG.sh -c rcn-ee_console_debian_jessie_armhf
+    ./RootStock-NG.sh -c rcn-ee_console_debian_stretch_armhf
     http://elinux.org/BeagleBoardDebian#Demo_Image
 
 elinux.org: Ubuntu Images:
 
-    ./RootStock-NG.sh -c rcn-ee_console_ubuntu_stable_armhf
+    ./RootStock-NG.sh -c rcn-ee_console_ubuntu_trusty_armhf
     http://elinux.org/BeagleBoardUbuntu#Demo_Image
 
 Release Process:
@@ -82,14 +97,5 @@ Release Process:
 MachineKit:
 ------------
 
-Branch:
-
-    git clone -b config-hooks https://github.com/cdsteinkuehler/omap-image-builder
-
-Images:
-
-    http://bb-lcnc.blogspot.com/p/machinekit_16.html
-
-Maintainer hints (aka me):
-
-    git pull --no-edit https://github.com/cdsteinkuehler/omap-image-builder MachineKit
+    ./RootStock-NG.sh -c machinekit-debian-wheezy
+    http://elinux.org/Beagleboard:BeagleBoneBlack_Debian#BBW.2FBBB_.28All_Revs.29_Machinekit

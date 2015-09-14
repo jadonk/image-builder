@@ -23,7 +23,9 @@
 export LC_ALL=C
 
 chromium_release="chromium-33.0.1750.117"
-u_boot_release="v2015.01"
+u_boot_release="v2015.10-rc3"
+u_boot_release_x15="v2015.07"
+#bone101_git_sha="50e01966e438ddc43b9177ad4e119e5274a0130d"
 
 #contains: rfs_username, release_date
 if [ -f /etc/rcn-ee.conf ] ; then
@@ -91,21 +93,20 @@ setup_system () {
 		fi
 	fi
 
-	if [ -f /opt/scripts/boot/am335x_evm.sh ] ; then
-		if [ -f /lib/systemd/system/serial-getty@.service ] ; then
-			cp /lib/systemd/system/serial-getty@.service /etc/systemd/system/serial-getty@ttyGS0.service
-			ln -s /etc/systemd/system/serial-getty@ttyGS0.service /etc/systemd/system/getty.target.wants/serial-getty@ttyGS0.service
+	if [ -f /lib/systemd/system/serial-getty@.service ] ; then
+		cp /lib/systemd/system/serial-getty@.service /etc/systemd/system/serial-getty@ttyGS0.service
+		ln -s /etc/systemd/system/serial-getty@ttyGS0.service /etc/systemd/system/getty.target.wants/serial-getty@ttyGS0.service
 
-			echo "" >> /etc/securetty
-			echo "#USB Gadget Serial Port" >> /etc/securetty
-			echo "ttyGS0" >> /etc/securetty
-		fi
+		echo "" >> /etc/securetty
+		echo "#USB Gadget Serial Port" >> /etc/securetty
+		echo "ttyGS0" >> /etc/securetty
 	fi
 
-	# Enable all users to read hidraw devices
-	cat <<- EOF > /etc/udev/rules.d/99-hdiraw.rules
-		SUBSYSTEM=="hidraw", MODE="0644"
-	EOF
+#	this is now done in the choot, need to double check the mode..
+#	# Enable all users to read hidraw devices
+#	cat <<- EOF > /etc/udev/rules.d/99-hdiraw.rules
+#		SUBSYSTEM=="hidraw", MODE="0644"
+#	EOF
 
 	# Enable PAM for ssh links
 	# Fixes an issue where users cannot change ulimits when logged in via
@@ -177,17 +178,10 @@ setup_desktop () {
 
 	#Disable LXDE's screensaver on autostart
 	if [ -f /etc/xdg/lxsession/LXDE/autostart ] ; then
-		cat /etc/xdg/lxsession/LXDE/autostart | grep -v xscreensaver > /tmp/autostart
-		mv /tmp/autostart /etc/xdg/lxsession/LXDE/autostart
-		rm -rf /tmp/autostart || true
+		sed -i '/xscreensaver/s/^/#/' /etc/xdg/lxsession/LXDE/autostart
 	fi
 
 	#echo "CAPE=cape-bone-proto" >> /etc/default/capemgr
-
-	#root password is blank, so remove useless application as it requires a password.
-	if [ -f /usr/share/applications/gksu.desktop ] ; then
-		rm -f /usr/share/applications/gksu.desktop || true
-	fi
 
 	#lxterminal doesnt reference .profile by default, so call via loginshell and start bash
 	if [ -f /usr/bin/lxterminal ] ; then
@@ -209,6 +203,51 @@ setup_desktop () {
 	fi
 }
 
+install_gem_pkgs () {
+	if [ -f /usr/bin/gem ] ; then
+		echo "Installing gem packages"
+		echo "debug: gem: [`gem --version`]"
+		gem_wheezy="--no-rdoc --no-ri"
+		gem_jessie="--no-document"
+
+		echo "gem: [beaglebone]"
+		gem install beaglebone || true
+
+		echo "gem: [jekyll ${gem_wheezy}]"
+		gem install jekyll ${gem_wheezy} || true
+	fi
+}
+
+install_pip_pkgs () {
+	if [ -f /usr/bin/pip ] ; then
+		echo "Installing pip packages"
+
+		#debian@beaglebone:~$ pip install Adafruit_BBIO
+		#Downloading/unpacking Adafruit-BBIO
+		#  Downloading Adafruit_BBIO-0.0.19.tar.gz
+		#  Running setup.py egg_info for package Adafruit-BBIO
+		#    The required version of distribute (>=0.6.45) is not available,
+		#    and can't be installed while this script is running. Please
+		#    install a more recent version first, using
+		#    'easy_install -U distribute'.
+		#
+		#    (Currently using distribute 0.6.24dev-r0 (/usr/lib/python2.7/dist-packages))
+		#    Complete output from command python setup.py egg_info:
+		#    The required version of distribute (>=0.6.45) is not available,
+		#
+		#and can't be installed while this script is running. Please
+		#
+		#install a more recent version first, using
+		#
+		#'easy_install -U distribute'.
+		#
+		#(Currently using distribute 0.6.24dev-r0 (/usr/lib/python2.7/dist-packages))
+
+		easy_install -U distribute
+		pip install Adafruit_BBIO
+	fi
+}
+
 cleanup_npm_cache () {
 	if [ -d /root/tmp/ ] ; then
 		rm -rf /root/tmp/ || true
@@ -221,6 +260,7 @@ cleanup_npm_cache () {
 
 install_node_pkgs () {
 	if [ -f /usr/bin/npm ] ; then
+		cd /
 		echo "Installing npm packages"
 		echo "debug: node: [`node --version`]"
 		echo "debug: npm: [`npm --version`]"
@@ -234,6 +274,11 @@ install_node_pkgs () {
 		#echo "--------------------------------"
 		#npm config ls -l
 		#echo "--------------------------------"
+
+		#c9-core-installer...
+		npm config delete cache
+		npm config delete tmp
+		npm config delete python
 
 		#fix npm in chroot.. (did i mention i hate npm...)
 		if [ ! -d /root/.npm ] ; then
@@ -256,11 +301,8 @@ install_node_pkgs () {
 		#echo "--------------------------------"
 
 		if [ -f /usr/bin/make ] ; then
-			echo "Installing bonescript"
-			TERM=dumb npm install -g bonescript --arch=armhf
-			if [ -f /usr/local/lib/node_modules/bonescript/server.js ] ; then
-				sed -i -e 's:/usr/share/bone101:/var/lib/cloud9:g' /usr/local/lib/node_modules/bonescript/server.js
-			fi
+			echo "Installing: [npm install -g bonescript@0.2.5]"
+			TERM=dumb npm install -g bonescript@0.2.5
 		fi
 
 		cd /opt/
@@ -281,15 +323,20 @@ install_node_pkgs () {
 		if [ -f /usr/local/bin/jekyll ] ; then
 			git_repo="https://github.com/beagleboard/bone101"
 			git_target_dir="/var/lib/cloud9"
-			git_clone
+
+			if [ "x${bone101_git_sha}" = "x" ] ; then
+				git_clone
+			else
+				git_clone_full
+			fi
 
 			if [ -f ${git_target_dir}/.git/config ] ; then
 				chown -R ${rfs_username}:${rfs_username} ${git_target_dir}
 				cd ${git_target_dir}/
 
-				#patch around jekyll always regenerating from cloud9 changes..
-				echo "baseurl: /bone101" > /var/lib/cloud9/_config.yml
-				echo "timezone: America/New_York" >>  /var/lib/cloud9/_config.yml
+				if [ ! "x${bone101_git_sha}" = "x" ] ; then
+					git checkout ${bone101_git_sha} -b tmp-production
+				fi
 
 				echo "jekyll pre-building bone101"
 				/usr/local/bin/jekyll build --destination bone101
@@ -360,51 +407,6 @@ install_node_pkgs () {
 	fi
 }
 
-install_pip_pkgs () {
-	if [ -f /usr/bin/pip ] ; then
-		echo "Installing pip packages"
-
-		#debian@beaglebone:~$ pip install Adafruit_BBIO
-		#Downloading/unpacking Adafruit-BBIO
-		#  Downloading Adafruit_BBIO-0.0.19.tar.gz
-		#  Running setup.py egg_info for package Adafruit-BBIO
-		#    The required version of distribute (>=0.6.45) is not available,
-		#    and can't be installed while this script is running. Please
-		#    install a more recent version first, using
-		#    'easy_install -U distribute'.
-		#
-		#    (Currently using distribute 0.6.24dev-r0 (/usr/lib/python2.7/dist-packages))
-		#    Complete output from command python setup.py egg_info:
-		#    The required version of distribute (>=0.6.45) is not available,
-		#
-		#and can't be installed while this script is running. Please
-		#
-		#install a more recent version first, using
-		#
-		#'easy_install -U distribute'.
-		#
-		#(Currently using distribute 0.6.24dev-r0 (/usr/lib/python2.7/dist-packages))
-
-		easy_install -U distribute
-		pip install Adafruit_BBIO
-	fi
-}
-
-install_gem_pkgs () {
-	if [ -f /usr/bin/gem ] ; then
-		echo "Installing gem packages"
-		echo "debug: gem: [`gem --version`]"
-		gem_wheezy="--no-rdoc --no-ri"
-		gem_jessie="--no-document"
-
-		echo "gem: [beaglebone]"
-		gem install beaglebone
-
-		echo "gem: [jekyll ${gem_wheezy}]"
-		gem install jekyll ${gem_wheezy}
-	fi
-}
-
 early_git_repos () {
 	git_repo="https://github.com/cdsteinkuehler/machinekit-beaglebone-extras"
 	git_target_dir="opt/source/machinekit-extras"
@@ -437,6 +439,7 @@ install_git_repos () {
 		if [ -f /usr/bin/make ] ; then
 			make
 		fi
+		cd /
 	fi
 
 	git_repo="https://github.com/biocode3D/prufh.git"
@@ -447,6 +450,7 @@ install_git_repos () {
 		if [ -f /usr/bin/make ] ; then
 			make LIBDIR_APP_LOADER=/usr/lib/ INCDIR_APP_LOADER=/usr/include
 		fi
+		cd /
 	fi
 
 	git_repo="https://github.com/alexanderhiam/PyBBIO.git"
@@ -458,12 +462,13 @@ install_git_repos () {
 			sed -i "s/PLATFORM = ''/PLATFORM = 'BeagleBone >=3.8'/g" setup.py
 			python setup.py install
 		fi
+		cd /
 	fi
 
-	git_repo="https://github.com/RobertCNelson/dtb-rebuilder.git"
-	git_branch="3.14-ti"
-	git_target_dir="/opt/source/dtb-${git_branch}"
-	git_clone_branch
+#	git_repo="https://github.com/RobertCNelson/dtb-rebuilder.git"
+#	git_branch="3.14-ti"
+#	git_target_dir="/opt/source/dtb-${git_branch}"
+#	git_clone_branch
 
 	git_repo="git://git.ti.com/pru-software-support-package/pru-software-support-package.git"
 	git_target_dir="/opt/source/pru-software-support-package"
@@ -473,35 +478,37 @@ install_git_repos () {
 install_build_pkgs () {
 	cd /opt/
 	if [ -f /usr/bin/xz ] ; then
-		wget https://rcn-ee.net/pkgs/chromium/${chromium_release}-armhf.tar.xz
+		wget https://rcn-ee.com/pkgs/chromium/${chromium_release}-armhf.tar.xz
 		if [ -f /opt/${chromium_release}-armhf.tar.xz ] ; then
 			tar xf ${chromium_release}-armhf.tar.xz -C /
 			rm -rf ${chromium_release}-armhf.tar.xz || true
-			echo "${chromium_release} : https://rcn-ee.net/pkgs/chromium/${chromium_release}.tar.xz" >> /opt/source/list.txt
+			echo "${chromium_release} : https://rcn-ee.com/pkgs/chromium/${chromium_release}.tar.xz" >> /opt/source/list.txt
 
 			#link Chromium to /usr/bin/x-www-browser
 			update-alternatives --install /usr/bin/x-www-browser x-www-browser /usr/bin/chromium 200
 		fi
 	fi
+	cd /
 }
 
 other_source_links () {
-	rcn_https="https://raw.githubusercontent.com/RobertCNelson/Bootloader-Builder/master/patches"
+	rcn_https="https://rcn-ee.com/repos/git/u-boot-patches"
 
 	mkdir -p /opt/source/u-boot_${u_boot_release}/
+	wget --directory-prefix="/opt/source/u-boot_${u_boot_release}/" ${rcn_https}/${u_boot_release}/0001-omap3_beagle-uEnv.txt-bootz-n-fixes.patch
 	wget --directory-prefix="/opt/source/u-boot_${u_boot_release}/" ${rcn_https}/${u_boot_release}/0001-am335x_evm-uEnv.txt-bootz-n-fixes.patch
-	wget --directory-prefix="/opt/source/u-boot_${u_boot_release}/" ${rcn_https}/${u_boot_release}/0001-beagle_x15-uEnv.txt-bootz-n-fixes.patch
+	mkdir -p /opt/source/u-boot_${u_boot_release_x15}/
+	wget --directory-prefix="/opt/source/u-boot_${u_boot_release_x15}/" ${rcn_https}/${u_boot_release_x15}/0001-beagle_x15-uEnv.txt-bootz-n-fixes.patch
 
 	echo "u-boot_${u_boot_release} : /opt/source/u-boot_${u_boot_release}" >> /opt/source/list.txt
+	echo "u-boot_${u_boot_release_x15} : /opt/source/u-boot_${u_boot_release_x15}" >> /opt/source/list.txt
+
+	chown -R ${rfs_username}:${rfs_username} /opt/source/
 }
 
 unsecure_root () {
-	root_password=$(cat /etc/shadow | grep root | awk -F ':' '{print $2}')
-	sed -i -e 's:'$root_password'::g' /etc/shadow
-
 	if [ -f /etc/ssh/sshd_config ] ; then
 		#Make ssh root@beaglebone work..
-		sed -i -e 's:PermitEmptyPasswords no:PermitEmptyPasswords yes:g' /etc/ssh/sshd_config
 		sed -i -e 's:UsePAM yes:UsePAM no:g' /etc/ssh/sshd_config
 	fi
 
@@ -512,7 +519,7 @@ unsecure_root () {
 }
 
 todo () {
-	#stuff i need to package in repos.rcn-ee.net
+	#stuff i need to package in repos.rcn-ee.com
 	#
 	cd /
 	if [ ! -f /etc/Wireless/RT2870STA/RT2870STA.dat ] ; then
@@ -533,10 +540,14 @@ setup_system
 setup_desktop
 
 install_gem_pkgs
-install_node_pkgs
 install_pip_pkgs
+install_node_pkgs
 if [ -f /usr/bin/git ] ; then
+	git config --global user.email "${rfs_username}@example.com"
+	git config --global user.name "${rfs_username}"
 	install_git_repos
+	git config --global --unset-all user.email
+	git config --global --unset-all user.name
 fi
 #install_build_pkgs
 other_source_links

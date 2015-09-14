@@ -35,7 +35,7 @@ fi
 
 generic_git () {
 	if [ ! -f ${DIR}/git/${git_project_name}/.git/config ] ; then
-		git clone ${git_clone_address} ${DIR}/git/${git_project_name}
+		git clone ${git_clone_address} ${DIR}/git/${git_project_name} --depth=1
 	fi
 }
 
@@ -54,6 +54,11 @@ git_trees () {
 
 	git_project_name="linux-firmware"
 	git_clone_address="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git"
+	generic_git
+	update_git
+
+	git_project_name="mt7601u"
+	git_clone_address="https://github.com/rcn-ee/mt7601u"
 	generic_git
 	update_git
 }
@@ -109,6 +114,9 @@ check_project_config () {
 		. ${DIR}/configs/${project_config}.conf
 		export_filename="${deb_distribution}-${release}-${image_type}-${deb_arch}-${time}"
 
+		# for automation
+		echo "${export_filename}" > ${DIR}/latest_version
+
 		echo "tempdir=\"${tempdir}\"" > ${DIR}/.project
 		echo "time=\"${time}\"" >> ${DIR}/.project
 		echo "export_filename=\"${export_filename}\"" >> ${DIR}/.project
@@ -144,7 +152,7 @@ while [ ! -z "$1" ] ; do
 	-h|--help)
 		usage
 		;;
-	-c|--config)
+	-c|-C|--config)
 		checkparm $2
 		project_config="$2"
 		check_project_config
