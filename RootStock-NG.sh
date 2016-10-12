@@ -94,7 +94,8 @@ check_project_config () {
 	fi
 	tempdir=$(mktemp -d -p ${DIR}/ignore)
 
-	time=$(date +%Y-%m-%d)
+	#time=$(date +%Y-%m-%d)
+	time=${TIME}
 
 	#/config/${project_config}.conf
 	unset leading_slash
@@ -146,6 +147,10 @@ while [ ! -z "$1" ] ; do
 	case $1 in
 	-h|--help)
 		usage
+		;;
+	-t|--time)
+		checkparm $2
+		TIME="$2"
 		;;
 	-c|-C|--config)
 		checkparm $2
