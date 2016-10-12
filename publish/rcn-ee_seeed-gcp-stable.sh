@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 time=$(date +%Y-%m-%d)
-mirror_dir="/var/www/html/rcn-ee.net/rootfs/bb.org/testing"
+mirror_dir="/var/www/html/rcn-ee.us/rootfs/bb.org/testing"
 DIR="$PWD"
 
 git pull --no-edit https://github.com/beagleboard/image-builder master
@@ -12,38 +12,27 @@ if [ -d ./deploy ] ; then
 	sudo rm -rf ./deploy || true
 fi
 
-./RootStock-NG.sh -c bb.org-debian-jessie-lxqt-4gb-v3.14
-./RootStock-NG.sh -c bb.org-debian-jessie-console
+./RootStock-NG.sh -c seeed-debian-jessie-gcp-iot-v4.4
 
-debian_jessie_lxqt_4gb="debian-8.2-lxqt-4gb-armhf-${time}"
-debian_jessie_console="debian-8.2-console-armhf-${time}"
+debian_jessie_seeed_gcp_iot="debian-8.6-seeed-gcp-iot-armhf-${time}"
 
 archive="xz -z -8"
 
-beaglebone="--dtb beaglebone --beagleboard.org-production --boot_label BEAGLEBONE \
---rootfs_label rootfs --bbb-old-bootloader-in-emmc --hostname beaglebone"
+beaglebone="--dtb beaglebone --bbb-old-bootloader-in-emmc \
+--rootfs_label rootfs --hostname beaglebone --enable-cape-universal"
 
-bb_blank_flasher="--dtb bbb-blank-eeprom --boot_label BEAGLEBONE \
---rootfs_label rootfs --bbb-old-bootloader-in-emmc --hostname beaglebone"
-
-beaglebone_console="--dtb beaglebone --boot_label BEAGLEBONE \
---bbb-old-bootloader-in-emmc --hostname beaglebone"
-
-bb_blank_flasher_console="--dtb bbb-blank-eeprom --boot_label BEAGLEBONE \
---bbb-old-bootloader-in-emmc --hostname beaglebone"
-
-arduino_tre="--dtb am335x-arduino-tre --beagleboard.org-production --boot_label ARDUINO-TRE \
+arduino_tre="--dtb am335x-arduino-tre --boot_label ARDUINO-TRE \
 --rootfs_label rootfs --hostname arduino-tre"
 
-omap3_beagle_xm="--dtb omap3-beagle-xm --hostname BeagleBoard"
-omap5_uevm="--dtb omap5-uevm --hostname omap5-uevm"
-am57xx_beagle_x15="--dtb am57xx-beagle-x15 --hostname BeagleBoard-X15"
+omap5_uevm="--dtb omap5-uevm --rootfs_label rootfs --hostname omap5-uevm"
+beagle_x15="--dtb am57xx-beagle-x15 --rootfs_label rootfs \
+--hostname BeagleBoard-X15"
 
 cat > ${DIR}/deploy/gift_wrap_final_images.sh <<-__EOF__
 #!/bin/bash
 
 copy_base_rootfs_to_mirror () {
-        if [ -d ${mirror_dir} ] ; then
+        if [ -d ${mirror_dir}/ ] ; then
                 if [ ! -d ${mirror_dir}/${time}/\${blend}/ ] ; then
                         mkdir -p ${mirror_dir}/${time}/\${blend}/ || true
                 fi
@@ -51,7 +40,7 @@ copy_base_rootfs_to_mirror () {
                         if [ ! -f ${mirror_dir}/${time}/\${blend}/\${base_rootfs}.tar.xz ] ; then
                                 cp -v \${base_rootfs}.tar ${mirror_dir}/${time}/\${blend}/
                                 cd ${mirror_dir}/${time}/\${blend}/
-                                ${archive} \${base_rootfs}.tar &
+                                ${archive} \${base_rootfs}.tar && sha256sum \${base_rootfs}.tar.xz > \${base_rootfs}.tar.xz.sha256sum &
                                 cd -
                         fi
                 fi
@@ -74,7 +63,9 @@ extract_base_rootfs () {
 
         if [ -f \${base_rootfs}.tar.xz ] ; then
                 tar xf \${base_rootfs}.tar.xz
-        else
+        fi
+
+        if [ -f \${base_rootfs}.tar ] ; then
                 tar xf \${base_rootfs}.tar
         fi
 }
@@ -86,12 +77,18 @@ copy_img_to_mirror () {
                 fi
                 if [ -d ${mirror_dir}/${time}/\${blend}/ ] ; then
                         if [ -f \${wfile}.bmap ] ; then
-                                cp -v \${wfile}.bmap ${mirror_dir}/${time}/\${blend}/
+                                mv -v \${wfile}.bmap ${mirror_dir}/${time}/\${blend}/
+                                sync
                         fi
                         if [ ! -f ${mirror_dir}/${time}/\${blend}/\${wfile}.img.zx ] ; then
-                                cp -v \${wfile}.img ${mirror_dir}/${time}/\${blend}/
+                                mv -v \${wfile}.img ${mirror_dir}/${time}/\${blend}/
+                                sync
+                                if [ -f \${wfile}.img.xz.job.txt ] ; then
+                                        mv -v \${wfile}.img.xz.job.txt ${mirror_dir}/${time}/\${blend}/
+                                        sync
+                                fi
                                 cd ${mirror_dir}/${time}/\${blend}/
-                                ${archive} \${wfile}.img &
+                                ${archive} \${wfile}.img && sha256sum \${wfile}.img.xz > \${wfile}.img.xz.sha256sum &
                                 cd -
                         fi
                 fi
@@ -110,33 +107,31 @@ archive_img () {
 }
 
 generate_img () {
-        cd \${base_rootfs}/
-        sudo ./setup_sdcard.sh \${options}
-        mv *.img ../
-        cd ..
+        if [ -d \${base_rootfs}/ ] ; then
+                cd \${base_rootfs}/
+                sudo ./setup_sdcard.sh \${options}
+                sudo chown 1000:1000 *.img || true
+                sudo chown 1000:1000 *.job.txt || true
+                mv *.img ../ || true
+                mv *.job.txt ../ || true
+                cd ..
+        fi
 }
 
-###lxqt-4gb image
-base_rootfs="${debian_jessie_lxqt_4gb}" ; blend="lxqt-4gb" ; extract_base_rootfs
+###seeed gcp iot image
+base_rootfs="${debian_jessie_seeed_gcp_iot}" ; blend="seeed-gcp-iot" ; extract_base_rootfs
 
-options="--img-4gb bone-\${base_rootfs} ${beaglebone}" ; generate_img
-
-###console images: (also single partition)
-base_rootfs="${debian_jessie_console}" ; blend="console" ; extract_base_rootfs
-
-options="--img-2gb bone-\${base_rootfs} ${beaglebone_console}" ; generate_img
+options="--img-4gb bone-\${base_rootfs}       ${beaglebone}"                ; generate_img
+options="--img-4gb BBGW-blank-\${base_rootfs} ${beaglebone} --bbgw-flasher" ; generate_img
 
 ###archive *.tar
-base_rootfs="${debian_jessie_lxqt_4gb}" ; blend="lxqt-4gb" ; archive_base_rootfs
-base_rootfs="${debian_jessie_console}" ; blend="console" ; archive_base_rootfs
+base_rootfs="${debian_jessie_seeed_gcp_iot}"      ; blend="seeed-gcp-iot"      ; archive_base_rootfs
 
 ###archive *.img
-blend="lxqt-4gb"
-wfile="bone-${debian_jessie_lxqt_4gb}-4gb" ; archive_img
+base_rootfs="${debian_jessie_seeed_gcp_iot}" ; blend="seeed-gcp-iot"
 
-blend="console"
-wfile="bone-${debian_jessie_console}-2gb" ; archive_img
-
+wfile="bone-\${base_rootfs}-4gb"       ; archive_img
+wfile="BBGW-blank-\${base_rootfs}-4gb" ; archive_img
 
 __EOF__
 
@@ -148,9 +143,10 @@ if [ ! -d /mnt/farm/images/ ] ; then
 fi
 
 if [ -d /mnt/farm/images/ ] ; then
-	mkdir /mnt/farm/images/${time}/
-	cp -v ${DIR}/deploy/*.tar /mnt/farm/images/${time}/
-	cp -v ${DIR}/deploy/gift_wrap_final_images.sh /mnt/farm/images/${time}/gift_wrap_final_images.sh
-	chmod +x /mnt/farm/images/${time}/gift_wrap_final_images.sh
+	mkdir /mnt/farm/images/seeed-gcp-${time}/
+	echo "Copying: *.tar to server: images/seeed-gcp-${time}/"
+	cp -v ${DIR}/deploy/*.tar /mnt/farm/images/seeed-gcp-${time}/
+	cp -v ${DIR}/deploy/gift_wrap_final_images.sh /mnt/farm/images/seeed-gcp-${time}/gift_wrap_final_images.sh
+	chmod +x /mnt/farm/images/seeed-gcp-${time}/gift_wrap_final_images.sh
 fi
 

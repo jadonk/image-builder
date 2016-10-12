@@ -1,6 +1,6 @@
 #!/bin/sh -e
 #
-# Copyright (c) 2014 Robert Nelson <robertcnelson@gmail.com>
+# Copyright (c) 2014-2016 Robert Nelson <robertcnelson@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -21,9 +21,6 @@
 # THE SOFTWARE.
 
 export LC_ALL=C
-
-u_boot_release="v2015.07"
-#bone101_git_sha="50e01966e438ddc43b9177ad4e119e5274a0130d"
 
 #contains: rfs_username, release_date
 if [ -f /etc/rcn-ee.conf ] ; then
@@ -81,38 +78,27 @@ git_clone_full () {
 	echo "${git_target_dir} : ${git_repo}" >> /opt/source/list.txt
 }
 
+setup_system () {
+	echo "" >> /etc/securetty
+	echo "#USB Gadget Serial Port" >> /etc/securetty
+	echo "ttyGS0" >> /etc/securetty
+}
 
 install_git_repos () {
 	git_repo="https://github.com/RobertCNelson/dtb-rebuilder.git"
-	git_branch="4.1-ti"
+	git_branch="4.4-ti"
 	git_target_dir="/opt/source/dtb-${git_branch}"
 	git_clone_branch
 
 	git_repo="https://github.com/beagleboard/bb.org-overlays"
 	git_target_dir="/opt/source/bb.org-overlays"
 	git_clone
-	if [ -f ${git_target_dir}/.git/config ] ; then
-		cd ${git_target_dir}/
-		if [ ! "x${repo_rcnee_pkg_version}" = "x" ] ; then
-			is_kernel=$(echo ${repo_rcnee_pkg_version} | grep 4.1)
-			if [ ! "x${is_kernel}" = "x" ] ; then
-				if [ -f /usr/bin/make ] ; then
-					./dtc-overlay.sh
-					make
-					make install
-					update-initramfs -u -k ${repo_rcnee_pkg_version}
-					rm -rf /home/${rfs_username}/git/ || true
-					make clean
-				fi
-			fi
-		fi
-	fi
 }
 
 
 is_this_qemu
 
-#setup_system
+setup_system
 #setup_desktop
 
 #install_gem_pkgs

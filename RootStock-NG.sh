@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/bin/bash -e
 #
 # Copyright (c) 2013 Robert Nelson <robertcnelson@gmail.com>
 #
@@ -56,11 +56,6 @@ git_trees () {
 	git_clone_address="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git"
 	generic_git
 	update_git
-
-	git_project_name="mt7601u"
-	git_clone_address="https://github.com/rcn-ee/mt7601u"
-	generic_git
-	update_git
 }
 
 run_roostock_ng () {
@@ -80,8 +75,8 @@ run_roostock_ng () {
 	fi
 
 	/bin/bash -e "${OIB_DIR}/scripts/install_dependencies.sh" || { exit 1 ; }
-	/bin/sh -e "${OIB_DIR}/scripts/debootstrap.sh" || { exit 1 ; }
-	/bin/sh -e "${OIB_DIR}/scripts/chroot.sh" || { exit 1 ; }
+	/bin/bash -e "${OIB_DIR}/scripts/debootstrap.sh" || { exit 1 ; }
+	/bin/bash -e "${OIB_DIR}/scripts/chroot.sh" || { exit 1 ; }
 	sudo rm -rf ${tempdir}/ || true
 }
 

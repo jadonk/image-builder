@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 time=$(date +%Y-%m-%d)
-mirror_dir="/var/www/html/rcn-ee.net/rootfs/bb.org/release"
+mirror_dir="/var/www/html/rcn-ee.us/rootfs/bb.org/release"
 DIR="$PWD"
 
 git pull --no-edit https://github.com/beagleboard/image-builder master
@@ -16,29 +16,20 @@ fi
 ./RootStock-NG.sh -c bb.org-debian-wheezy-lxde-4gb
 ./RootStock-NG.sh -c bb.org-debian-wheezy-console
 
-debian_wheezy_lxde_2gb="debian-7.9-lxde-armhf-${time}"
-debian_wheezy_lxde_4gb="debian-7.9-lxde-4gb-armhf-${time}"
-debian_wheezy_console="debian-7.9-console-armhf-${time}"
+debian_wheezy_lxde_2gb="debian-7.11-lxde-armhf-${time}"
+debian_wheezy_lxde_4gb="debian-7.11-lxde-4gb-armhf-${time}"
+ debian_wheezy_console="debian-7.11-console-armhf-${time}"
 
 archive="xz -z -8"
 
-beaglebone="--dtb beaglebone --beagleboard.org-production --boot_label BEAGLEBONE \
---rootfs_label rootfs --bbb-old-bootloader-in-emmc --hostname beaglebone"
-
-bb_blank_flasher="--dtb bbb-blank-eeprom --boot_label BEAGLEBONE \
---rootfs_label rootfs --bbb-old-bootloader-in-emmc --hostname beaglebone"
-
-beaglebone_console="--dtb beaglebone --boot_label BEAGLEBONE \
---bbb-old-bootloader-in-emmc --hostname beaglebone"
-
-bb_blank_flasher_console="--dtb bbb-blank-eeprom --boot_label BEAGLEBONE \
---bbb-old-bootloader-in-emmc --hostname beaglebone"
+beaglebone="--dtb beaglebone --bbb-old-bootloader-in-emmc \
+--rootfs_label rootfs --hostname beaglebone --enable-systemd"
 
 cat > ${DIR}/deploy/gift_wrap_final_images.sh <<-__EOF__
 #!/bin/bash
 
 copy_base_rootfs_to_mirror () {
-        if [ -d ${mirror_dir} ] ; then
+        if [ -d ${mirror_dir}/ ] ; then
                 if [ ! -d ${mirror_dir}/${time}/\${blend}/ ] ; then
                         mkdir -p ${mirror_dir}/${time}/\${blend}/ || true
                 fi
@@ -46,7 +37,7 @@ copy_base_rootfs_to_mirror () {
                         if [ ! -f ${mirror_dir}/${time}/\${blend}/\${base_rootfs}.tar.xz ] ; then
                                 cp -v \${base_rootfs}.tar ${mirror_dir}/${time}/\${blend}/
                                 cd ${mirror_dir}/${time}/\${blend}/
-                                ${archive} \${base_rootfs}.tar &
+                                ${archive} \${base_rootfs}.tar && sha256sum \${base_rootfs}.tar.xz > \${base_rootfs}.tar.xz.sha256sum &
                                 cd -
                         fi
                 fi
@@ -69,7 +60,9 @@ extract_base_rootfs () {
 
         if [ -f \${base_rootfs}.tar.xz ] ; then
                 tar xf \${base_rootfs}.tar.xz
-        else
+        fi
+
+        if [ -f \${base_rootfs}.tar ] ; then
                 tar xf \${base_rootfs}.tar
         fi
 }
@@ -81,12 +74,18 @@ copy_img_to_mirror () {
                 fi
                 if [ -d ${mirror_dir}/${time}/\${blend}/ ] ; then
                         if [ -f \${wfile}.bmap ] ; then
-                                cp -v \${wfile}.bmap ${mirror_dir}/${time}/\${blend}/
+                                mv -v \${wfile}.bmap ${mirror_dir}/${time}/\${blend}/
+                                sync
                         fi
                         if [ ! -f ${mirror_dir}/${time}/\${blend}/\${wfile}.img.zx ] ; then
-                                cp -v \${wfile}.img ${mirror_dir}/${time}/\${blend}/
+                                mv -v \${wfile}.img ${mirror_dir}/${time}/\${blend}/
+                                sync
+                                if [ -f \${wfile}.img.xz.job.txt ] ; then
+                                        mv -v \${wfile}.img.xz.job.txt ${mirror_dir}/${time}/\${blend}/
+                                        sync
+                                fi
                                 cd ${mirror_dir}/${time}/\${blend}/
-                                ${archive} \${wfile}.img &
+                                ${archive} \${wfile}.img && sha256sum \${wfile}.img.xz > \${wfile}.img.xz.sha256sum &
                                 cd -
                         fi
                 fi
@@ -105,51 +104,57 @@ archive_img () {
 }
 
 generate_img () {
-        cd \${base_rootfs}/
-        sudo ./setup_sdcard.sh \${options}
-        mv *.img ../
-        cd ..
+        if [ -d \${base_rootfs}/ ] ; then
+                cd \${base_rootfs}/
+                sudo ./setup_sdcard.sh \${options}
+                sudo chown 1000:1000 *.img || true
+                sudo chown 1000:1000 *.job.txt || true
+                mv *.img ../ || true
+                mv *.job.txt ../ || true
+                cd ..
+        fi
 }
 
 ###Production lxde images: (BBB: 4GB eMMC)
 base_rootfs="${debian_wheezy_lxde_4gb}" ; blend="lxde-4gb" ; extract_base_rootfs
 
-options="--img-4gb BBB-blank-eMMC-flasher-\${base_rootfs} ${bb_blank_flasher} --enable-systemd --bbb-flasher" ; generate_img
-options="--img-4gb BBG-blank-eMMC-flasher-\${base_rootfs} ${bb_blank_flasher} --enable-systemd --bbg-flasher" ; generate_img
-options="--img-4gb BBB-eMMC-flasher-\${base_rootfs} ${beaglebone} --enable-systemd --bbb-flasher" ; generate_img
-options="--img-4gb bone-\${base_rootfs} ${beaglebone} --enable-systemd" ; generate_img
+options="--img-4gb BBB-blank-\${base_rootfs} ${beaglebone} --emmc-flasher" ; generate_img
+options="--img-4gb bone-\${base_rootfs}      ${beaglebone}"                ; generate_img
 
 ###lxde images: (BBB: 2GB eMMC)
 base_rootfs="${debian_wheezy_lxde_2gb}" ; blend="lxde" ; extract_base_rootfs
 
-options="--img-2gb BBB-eMMC-flasher-\${base_rootfs} ${beaglebone} --enable-systemd --bbb-flasher" ; generate_img
+options="--img-2gb BBB-blank-\${base_rootfs} ${beaglebone} --emmc-flasher" ; generate_img
+options="--img-2gb bone-\${base_rootfs}      ${beaglebone}"                ; generate_img
 
-###console images: (also single partition)
+###console images
 base_rootfs="${debian_wheezy_console}" ; blend="console" ; extract_base_rootfs
 
-options="--img-2gb BBB-blank-eMMC-flasher-\${base_rootfs} ${bb_blank_flasher_console} --enable-systemd --bbb-flasher" ; generate_img
-options="--img-2gb BBB-eMMC-flasher-\${base_rootfs} ${beaglebone_console} --enable-systemd --bbb-flasher" ; generate_img
-options="--img-2gb bone-\${base_rootfs} ${beaglebone_console} --enable-systemd" ; generate_img
+options="--img-2gb BBB-blank-\${base_rootfs} ${beaglebone} --emmc-flasher" ; generate_img
+options="--img-2gb bone-\${base_rootfs}      ${beaglebone}"                ; generate_img
 
 ###archive *.tar
 base_rootfs="${debian_wheezy_lxde_4gb}" ; blend="lxde-4gb" ; archive_base_rootfs
-base_rootfs="${debian_wheezy_lxde_2gb}" ; blend="lxde" ; archive_base_rootfs
-base_rootfs="${debian_wheezy_console}" ; blend="console" ; archive_base_rootfs
+base_rootfs="${debian_wheezy_lxde_2gb}" ; blend="lxde"     ; archive_base_rootfs
+base_rootfs="${debian_wheezy_console}"  ; blend="console"  ; archive_base_rootfs
 
 ###archive *.img
-blend="lxde-4gb"
-wfile="BBB-blank-eMMC-flasher-${debian_wheezy_lxde_4gb}-4gb" ; archive_img
-wfile="BBG-blank-eMMC-flasher-${debian_wheezy_lxde_4gb}-4gb" ; archive_img
-wfile="BBB-eMMC-flasher-${debian_wheezy_lxde_4gb}-4gb" ; archive_img
-wfile="bone-${debian_wheezy_lxde_4gb}-4gb" ; archive_img
+base_rootfs="${debian_wheezy_lxde_4gb}" ; blend="lxde-4gb"
 
-blend="lxde"
-wfile="BBB-eMMC-flasher-${debian_wheezy_lxde_2gb}-2gb" ; archive_img
+wfile="BBB-blank-\${base_rootfs}-4gb" ; archive_img
+wfile="bone-\${base_rootfs}-4gb"      ; archive_img
 
-blend="console"
-wfile="BBB-blank-eMMC-flasher-${debian_wheezy_console}-2gb" ;archive_img
-wfile="BBB-eMMC-flasher-${debian_wheezy_console}-2gb" ; archive_img
-wfile="bone-${debian_wheezy_console}-2gb" ; archive_img
+#
+base_rootfs="${debian_wheezy_lxde_2gb}" ; blend="lxde"
+
+wfile="BBB-blank-\${base_rootfs}-2gb" ; archive_img
+wfile="bone-\${base_rootfs}-2gb"      ; archive_img
+
+#
+base_rootfs="${debian_wheezy_console}" ; blend="console"
+
+wfile="BBB-blank-\${base_rootfs}-2gb" ; archive_img
+wfile="bone-\${base_rootfs}-2gb"      ; archive_img
 
 __EOF__
 
@@ -161,9 +166,9 @@ if [ ! -d /mnt/farm/images/ ] ; then
 fi
 
 if [ -d /mnt/farm/images/ ] ; then
-	mkdir /mnt/farm/images/${time}/
-	cp -v ${DIR}/deploy/*.tar /mnt/farm/images/${time}/
-	cp -v ${DIR}/deploy/gift_wrap_final_images.sh /mnt/farm/images/${time}/gift_wrap_final_images.sh
-	chmod +x /mnt/farm/images/${time}/gift_wrap_final_images.sh
+	mkdir /mnt/farm/images/bb.org-${time}/
+	cp -v ${DIR}/deploy/*.tar /mnt/farm/images/bb.org-${time}/
+	cp -v ${DIR}/deploy/gift_wrap_final_images.sh /mnt/farm/images/bb.org-${time}/gift_wrap_final_images.sh
+	chmod +x /mnt/farm/images/bb.org-${time}/gift_wrap_final_images.sh
 fi
 

@@ -1,15 +1,13 @@
 #!/bin/bash -e
 
 time=$(date +%Y-%m-%d)
-mirror_dir="/var/www/html/rcn-ee.net/rootfs/eewiki"
+mirror_dir="/var/www/html/rcn-ee.us/rootfs/eewiki"
 DIR="$PWD"
-host=$(uname -n)
 
-if [ "x${host}" = "xscw-69d6d5" ] ; then
-	hostip=$(sudo ip addr list eth0 |grep "inet " |cut -d' ' -f6|cut -d/ -f1 2>/dev/null || true)
-	export apt_proxy=${hostip}:3142/
-else
-	export apt_proxy=apt-proxy:3142/
+export apt_proxy=apt-proxy:3142/
+
+if [ -d ./deploy ] ; then
+	sudo rm -rf ./deploy || true
 fi
 
 ./RootStock-NG.sh -c eewiki_bare_debian_jessie_armel
@@ -17,10 +15,10 @@ fi
 
 ./RootStock-NG.sh -c eewiki_minfs_debian_jessie_armel
 ./RootStock-NG.sh -c eewiki_minfs_debian_jessie_armhf
-./RootStock-NG.sh -c eewiki_minfs_ubuntu_trusty_armhf
+./RootStock-NG.sh -c eewiki_minfs_ubuntu_xenial_armhf
 
-debian_stable="debian-8.2"
-ubuntu_stable="ubuntu-14.04.3"
+debian_stable="debian-8.6"
+ubuntu_stable="ubuntu-16.04.1"
 archive="xz -z -8"
 
 cat > ${DIR}/deploy/gift_wrap_final_images.sh <<-__EOF__
@@ -35,7 +33,7 @@ copy_base_rootfs_to_mirror () {
                         if [ ! -f ${mirror_dir}/\${blend}/\${base_rootfs}.tar.xz ] ; then
                                 cp -v \${base_rootfs}.tar ${mirror_dir}/\${blend}/
                                 cd ${mirror_dir}/\${blend}/
-                                ${archive} \${base_rootfs}.tar &
+                                ${archive} \${base_rootfs}.tar && sha256sum \${base_rootfs}.tar.xz > \${base_rootfs}.tar.xz.sha256sum &
                                 cd -
                         fi
                 fi
@@ -62,9 +60,9 @@ if [ ! -d /mnt/farm/images/ ] ; then
 fi
 
 if [ -d /mnt/farm/images/ ] ; then
-	mkdir /mnt/farm/images/${time}/
-	cp -v ${DIR}/deploy/*.tar /mnt/farm/images/${time}/
-	cp -v ${DIR}/deploy/gift_wrap_final_images.sh /mnt/farm/images/${time}/gift_wrap_final_images.sh
-	chmod +x /mnt/farm/images/${time}/gift_wrap_final_images.sh
+	mkdir /mnt/farm/images/eewiki-${time}/
+	cp -v ${DIR}/deploy/*.tar /mnt/farm/images/eewiki-${time}/
+	cp -v ${DIR}/deploy/gift_wrap_final_images.sh /mnt/farm/images/eewiki-${time}/gift_wrap_final_images.sh
+	chmod +x /mnt/farm/images/eewiki-${time}/gift_wrap_final_images.sh
 fi
 
