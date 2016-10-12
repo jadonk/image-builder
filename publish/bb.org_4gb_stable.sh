@@ -20,7 +20,7 @@ keep_net_alive () {
 build_and_upload_image () {
 	echo "***BUILDING***: ${config_name}: ${target_name}-${image_name}-${size}.img"
 	
-	./RootStock-NG.sh -c ${config_name}
+	./RootStock-NG.sh -t ${time} -c ${config_name}
 
 	if [ -d ./deploy/${image_name} ] ; then
 		cd ./deploy/${image_name}/
